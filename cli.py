@@ -22,11 +22,24 @@ from .llm import get_llm_provider
 console = Console()
 
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.version_option(version=__version__)
-def cli():
-    """KakaoTalk → Notion converter with intelligent clustering"""
-    pass
+@click.pass_context
+def cli(ctx):
+    """KakaoTalk → Notion converter with intelligent clustering
+
+    Run without arguments for interactive mode:
+        kakao2notion
+
+    Or use specific commands:
+        kakao2notion process input.json
+        kakao2notion upload input.json --database-id ID
+        kakao2notion configure
+    """
+    # If no command provided, run interactive mode
+    if ctx.invoked_subcommand is None:
+        from .interactive import run_interactive
+        run_interactive()
 
 
 @cli.command()
