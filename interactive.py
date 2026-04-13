@@ -20,6 +20,39 @@ class InteractiveCLI:
         self.session = PromptSession()
         self.config_manager = None
 
+    def _show_auth_status(self):
+        """Show authentication status"""
+        try:
+            from .config import ConfigManager
+            from .llm import check_llm_status
+
+            config = ConfigManager()
+            llm_status = check_llm_status()
+
+            console.print("\n[cyan]Authentication Status:[/cyan]")
+
+            # Notion status
+            notion_status = "✓" if config.config.notion_api_key else "✗"
+            console.print(f"  {notion_status} Notion API: ", end="")
+            if config.config.notion_api_key:
+                console.print("[green]Configured[/green]")
+            else:
+                console.print("[yellow]Not configured[/yellow]")
+
+            # LLM status
+            console.print(f"  Providers: ", end="")
+            provider_statuses = []
+            for provider_name, status in llm_status.items():
+                if status.get("is_authenticated"):
+                    provider_statuses.append(f"[green]{provider_name}[/green]")
+                else:
+                    provider_statuses.append(f"[yellow]{provider_name}[/yellow]")
+            console.print(" ".join(provider_statuses))
+
+        except Exception:
+            # Silently skip auth status if there's any error
+            pass
+
     def run(self):
         """Run interactive CLI"""
         console.print(
@@ -28,6 +61,9 @@ class InteractiveCLI:
                 expand=False,
             )
         )
+
+        # Show quick auth status
+        self._show_auth_status()
 
         while True:
             console.print()
@@ -273,7 +309,24 @@ class InteractiveCLI:
             password=True,
         )
 
-        # Get LLM provider
+        # Check LLM provider status
+        console.print("\n[cyan]Checking LLM providers...[/cyan]")
+        from .llm import check_llm_status
+        llm_status = check_llm_status()
+
+        # Display provider status
+        console.print("\n[bold]Available LLM Providers:[/bold]")
+        providers_table = Table(show_header=True, box=None)
+        providers_table.add_column("Provider", style="cyan")
+        providers_table.add_column("Status", style="magenta")
+
+        for provider_name, status in llm_status.items():
+            status_msg = status.get("status_message", "Unknown")
+            providers_table.add_row(provider_name.upper(), status_msg)
+
+        console.print(providers_table)
+
+        # Get LLM provider choice
         console.print("\n[cyan]LLM Provider:[/cyan]")
         providers = {"1": "codex", "2": "claude"}
         table = Table(show_header=False, box=None)
@@ -306,21 +359,48 @@ class InteractiveCLI:
 
         console.print("[green]✓ Configuration saved[/green]")
 
+        # Verify selected provider is authenticated
+        selected_status = llm_status.get(provider, {})
+        if not selected_status.get("is_authenticated", False):
+            console.print(f"\n[yellow]⚠️  Warning: {provider.upper()} is not authenticated[/yellow]")
+            console.print(f"[yellow]{selected_status.get('status_message', 'Authentication required')}[/yellow]")
+
     def _test_flow(self):
         """Interactive test flow"""
-        console.print("\n[cyan]Testing Notion connection...[/cyan]")
+        console.print("\n" + "=" * 50)
+        console.print("[bold cyan]TESTING CONNECTIONS[/bold cyan]")
+        console.print("=" * 50)
 
         try:
             from .config import ConfigManager
             from .notion_client import NotionClient
+            from .llm import check_llm_status
 
             config = ConfigManager()
+
+            # Test Notion
+            console.print("\n[cyan]Testing Notion connection...[/cyan]")
             notion = NotionClient(config.config.notion_api_key)
 
             if notion.test_connection():
-                console.print("[green]✓ Connection successful[/green]")
+                console.print("[green]✓ Notion connection successful[/green]")
             else:
-                console.print("[red]✗ Connection failed[/red]")
+                console.print("[red]✗ Notion connection failed[/red]")
+
+            # Test LLM providers
+            console.print("\n[cyan]Checking LLM providers...[/cyan]")
+            llm_status = check_llm_status()
+
+            status_table = Table(show_header=True, box=None)
+            status_table.add_column("Provider", style="cyan")
+            status_table.add_column("Status", style="magenta")
+
+            for provider_name, status in llm_status.items():
+                status_msg = status.get("status_message", "Unknown")
+                status_table.add_row(provider_name.upper(), status_msg)
+
+            console.print(status_table)
+
         except Exception as e:
             console.print(f"[red]✗ Error: {e}[/red]")
 

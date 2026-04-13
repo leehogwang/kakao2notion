@@ -17,9 +17,19 @@ from .vectorizer import Vectorizer
 from .clusterer import KNNClusterer
 from .merger import MessageMerger
 from .notion_client import NotionClient
-from .llm import get_llm_provider
+from .llm import get_llm_provider, check_llm_status
 
 console = Console()
+
+
+def _check_llm_available(provider_name: Optional[str] = None) -> bool:
+    """Check if LLM provider is authenticated"""
+    status = check_llm_status(provider=provider_name)
+    if provider_name:
+        return status.get(provider_name, {}).get("is_authenticated", False)
+    else:
+        # Any provider is available
+        return any(s.get("is_authenticated", False) for s in status.values())
 
 
 @click.group(invoke_without_command=True)
@@ -179,25 +189,36 @@ def process(
         if use_llm:
             console.print("[cyan]Generating category names with LLM...[/cyan]")
             config = ConfigManager()
-            try:
-                llm = get_llm_provider(
-                    provider=config.config.llm_provider,
-                    model=config.config.llm_model,
-                )
 
-                for cluster in clusters:
-                    cluster_messages = [merged_messages[i] for i in cluster.indices]
-                    name, desc = llm.generate_category_name(cluster_messages)
-                    cluster.category_name = name
-                    cluster.category_description = desc
-
-                console.print("[green]✓ Generated category names[/green]")
-            except Exception as e:
-                console.print(f"[yellow]⚠ LLM generation failed: {e}[/yellow]")
+            # Check if LLM provider is available
+            if not _check_llm_available(config.config.llm_provider):
+                console.print(f"[yellow]⚠ {config.config.llm_provider.upper()} not authenticated[/yellow]")
+                llm_status = check_llm_status()
+                console.print(f"[yellow]{llm_status.get(config.config.llm_provider, {}).get('status_message', 'Auth required')}[/yellow]")
                 console.print("[cyan]Using default category names[/cyan]")
                 for i, cluster in enumerate(clusters):
                     cluster.category_name = f"Category {i + 1}"
                     cluster.category_description = f"{len(cluster)} items"
+            else:
+                try:
+                    llm = get_llm_provider(
+                        provider=config.config.llm_provider,
+                        model=config.config.llm_model,
+                    )
+
+                    for cluster in clusters:
+                        cluster_messages = [merged_messages[i] for i in cluster.indices]
+                        name, desc = llm.generate_category_name(cluster_messages)
+                        cluster.category_name = name
+                        cluster.category_description = desc
+
+                    console.print("[green]✓ Generated category names[/green]")
+                except Exception as e:
+                    console.print(f"[yellow]⚠ LLM generation failed: {e}[/yellow]")
+                    console.print("[cyan]Using default category names[/cyan]")
+                    for i, cluster in enumerate(clusters):
+                        cluster.category_name = f"Category {i + 1}"
+                        cluster.category_description = f"{len(cluster)} items"
 
     # Display results
     table = Table(title="Clustering Results")
@@ -348,19 +369,27 @@ def upload(
         # Generate names
         if use_llm:
             task = progress.add_task("Generating category names...", total=None)
-            try:
-                llm = get_llm_provider(
-                    provider=config.config.llm_provider,
-                )
-                for cluster in clusters:
-                    cluster_messages = [merged_messages[i] for i in cluster.indices]
-                    name, desc = llm.generate_category_name(cluster_messages)
-                    cluster.category_name = name
-                    cluster.category_description = desc
+
+            # Check if LLM provider is available
+            if not _check_llm_available(config.config.llm_provider):
                 progress.stop_task(task)
-            except Exception as e:
-                progress.stop_task(task)
-                console.print(f"[yellow]⚠ LLM failed: {e}[/yellow]")
+                console.print(f"[yellow]⚠ {config.config.llm_provider.upper()} not authenticated[/yellow]")
+                llm_status = check_llm_status()
+                console.print(f"[yellow]{llm_status.get(config.config.llm_provider, {}).get('status_message', 'Auth required')}[/yellow]")
+            else:
+                try:
+                    llm = get_llm_provider(
+                        provider=config.config.llm_provider,
+                    )
+                    for cluster in clusters:
+                        cluster_messages = [merged_messages[i] for i in cluster.indices]
+                        name, desc = llm.generate_category_name(cluster_messages)
+                        cluster.category_name = name
+                        cluster.category_description = desc
+                    progress.stop_task(task)
+                except Exception as e:
+                    progress.stop_task(task)
+                    console.print(f"[yellow]⚠ LLM failed: {e}[/yellow]")
 
         # Upload to Notion
         task = progress.add_task("Uploading to Notion...", total=None)
@@ -379,19 +408,35 @@ def upload(
 
 @cli.command()
 def test():
-    """Test Notion connection"""
+    """Test Notion and LLM connections"""
     config = ConfigManager()
 
+    # Test Notion
+    console.print("[cyan]Testing Notion connection...[/cyan]")
     if not config.config.notion_api_key:
-        console.print("[red]Error: Notion API key not configured[/red]")
+        console.print("[red]✗ Notion API key not configured[/red]")
         sys.exit(1)
 
     notion = NotionClient(config.config.notion_api_key)
     if notion.test_connection():
-        console.print("[green]✓ Connection successful[/green]")
+        console.print("[green]✓ Notion connection successful[/green]")
     else:
-        console.print("[red]✗ Connection failed[/red]")
+        console.print("[red]✗ Notion connection failed[/red]")
         sys.exit(1)
+
+    # Test LLM providers
+    console.print("\n[cyan]Checking LLM providers...[/cyan]")
+    llm_status = check_llm_status()
+
+    table = Table(title="LLM Provider Status")
+    table.add_column("Provider", style="cyan")
+    table.add_column("Status", style="magenta")
+
+    for provider_name, status in llm_status.items():
+        status_msg = status.get("status_message", "Unknown")
+        table.add_row(provider_name.upper(), status_msg)
+
+    console.print(table)
 
 
 def main():
