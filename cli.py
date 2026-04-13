@@ -64,9 +64,21 @@ def configure(api_key: str, llm_provider: str):
 )
 @click.option(
     "--n-clusters",
-    default=5,
+    default=None,
     type=int,
-    help="Number of clusters",
+    help="Number of clusters (if not set, auto-calculate)",
+)
+@click.option(
+    "--auto-clusters",
+    is_flag=True,
+    default=False,
+    help="Automatically find optimal number of clusters",
+)
+@click.option(
+    "--cluster-method",
+    type=click.Choice(["silhouette", "davies_bouldin", "calinski", "elbow", "ensemble"]),
+    default="silhouette",
+    help="Method for finding optimal clusters",
 )
 @click.option(
     "--similarity-threshold",
@@ -89,7 +101,9 @@ def configure(api_key: str, llm_provider: str):
 def process(
     input_file: str,
     format: str,
-    n_clusters: int,
+    n_clusters: Optional[int],
+    auto_clusters: bool,
+    cluster_method: str,
     similarity_threshold: float,
     use_llm: bool,
     output: Optional[str],
@@ -113,16 +127,40 @@ def process(
         merged_messages = merger.merge_messages(messages)
         console.print(f"[green]✓ Merged to {len(merged_messages)} messages[/green]")
 
-        # Step 3: Cluster
-        console.print(f"[cyan]Clustering into {n_clusters} categories...[/cyan]")
+        # Step 3: Determine optimal clusters
         merged_texts = [m.content for m in merged_messages]
         vectors = vectorizer.fit_transform(merged_texts)
 
+        if auto_clusters:
+            console.print("[cyan]Finding optimal number of clusters...[/cyan]")
+            if cluster_method == "ensemble":
+                clusterer = KNNClusterer(random_state=42)
+                optimal_k, results = clusterer.find_optimal_clusters_ensemble(vectors)
+                console.print(f"[green]✓ Ensemble voting results: {results}[/green]")
+                n_clusters = optimal_k
+            else:
+                clusterer = KNNClusterer(random_state=42)
+                n_clusters = clusterer.find_optimal_clusters(
+                    vectors,
+                    method=cluster_method
+                )
+            console.print(f"[green]✓ Optimal clusters: {n_clusters}[/green]")
+        else:
+            if n_clusters is None:
+                # Quick estimate based on data size
+                clusterer = KNNClusterer(random_state=42)
+                n_clusters = clusterer.estimate_optimal_clusters_by_size(len(merged_messages))
+                console.print(f"[cyan]Using estimated optimal clusters: {n_clusters}[/cyan]")
+
+        # Step 4: Cluster
+        console.print(f"[cyan]Clustering into {n_clusters} categories...[/cyan]")
         clusterer = KNNClusterer(n_clusters=n_clusters)
         clusterer.fit(vectors)
 
         clusters = clusterer.get_clusters()
+        quality = clusterer.get_cluster_quality_report()
         console.print(f"[green]✓ Created {len(clusters)} clusters[/green]")
+        console.print(f"[cyan]  Silhouette Score: {quality['silhouette_score']} ({quality['quality_interpretation']})[/cyan]")
 
         # Step 4: Generate category names
         if use_llm:
@@ -201,9 +239,21 @@ def process(
 )
 @click.option(
     "--n-clusters",
-    default=5,
+    default=None,
     type=int,
-    help="Number of clusters",
+    help="Number of clusters (if not set, auto-calculate)",
+)
+@click.option(
+    "--auto-clusters",
+    is_flag=True,
+    default=False,
+    help="Automatically find optimal number of clusters",
+)
+@click.option(
+    "--cluster-method",
+    type=click.Choice(["silhouette", "davies_bouldin", "calinski", "elbow", "ensemble"]),
+    default="silhouette",
+    help="Method for finding optimal clusters",
 )
 @click.option(
     "--use-llm",
@@ -215,7 +265,9 @@ def upload(
     input_file: str,
     database_id: str,
     format: str,
-    n_clusters: int,
+    n_clusters: Optional[int],
+    auto_clusters: bool,
+    cluster_method: str,
     use_llm: bool,
 ):
     """Process and upload to Notion"""
@@ -249,13 +301,35 @@ def upload(
         progress.stop_task(task)
         console.print(f"[green]✓ Merged to {len(merged_messages)} messages[/green]")
 
-        # Cluster
-        task = progress.add_task("Clustering...", total=None)
+        # Determine optimal clusters
         merged_texts = [m.content for m in merged_messages]
         vectors = vectorizer.fit_transform(merged_texts)
+
+        if auto_clusters:
+            task = progress.add_task("Finding optimal clusters...", total=None)
+            if cluster_method == "ensemble":
+                clusterer = KNNClusterer(random_state=42)
+                optimal_k, results = clusterer.find_optimal_clusters_ensemble(vectors)
+                console.print(f"[green]✓ Ensemble voting: {results}[/green]")
+                n_clusters = optimal_k
+            else:
+                clusterer = KNNClusterer(random_state=42)
+                n_clusters = clusterer.find_optimal_clusters(vectors, method=cluster_method)
+            console.print(f"[green]✓ Optimal clusters: {n_clusters}[/green]")
+            progress.stop_task(task)
+        else:
+            if n_clusters is None:
+                clusterer = KNNClusterer(random_state=42)
+                n_clusters = clusterer.estimate_optimal_clusters_by_size(len(merged_messages))
+                console.print(f"[cyan]Using estimated clusters: {n_clusters}[/cyan]")
+
+        # Cluster
+        task = progress.add_task("Clustering...", total=None)
         clusterer = KNNClusterer(n_clusters=n_clusters)
         clusterer.fit(vectors)
         clusters = clusterer.get_clusters()
+        quality = clusterer.get_cluster_quality_report()
+        console.print(f"[cyan]Silhouette Score: {quality['silhouette_score']} ({quality['quality_interpretation']})[/cyan]")
         progress.stop_task(task)
 
         # Generate names
