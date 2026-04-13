@@ -105,6 +105,8 @@ Process KakaoTalk messages without uploading.
 ```bash
 kakao2notion process INPUT [--format {json,txt,auto}] \
   [--n-clusters N] \
+  [--auto-clusters] \
+  [--cluster-method METHOD] \
   [--similarity-threshold T] \
   [--use-llm] \
   [--output FILE]
@@ -112,7 +114,14 @@ kakao2notion process INPUT [--format {json,txt,auto}] \
 
 **Options:**
 - `--format`: Input format (auto-detect by extension)
-- `--n-clusters`: Number of categories (default: 5)
+- `--n-clusters`: Number of categories (if omitted, auto-estimates)
+- `--auto-clusters`: Automatically find optimal number of clusters
+- `--cluster-method`: Algorithm for optimization
+  - `silhouette` (default) - Best cluster cohesion/separation
+  - `davies_bouldin` - Cluster distance ratio
+  - `calinski` - Variance ratio
+  - `elbow` - Inertia optimization
+  - `ensemble` - Vote from all methods
 - `--similarity-threshold`: Merge threshold 0-1 (default: 0.7)
 - `--use-llm`: Use LLM for category names (requires config)
 - `--output`: Save results as JSON
@@ -126,11 +135,15 @@ kakao2notion upload INPUT \
   --database-id ID \
   [--format {json,txt,auto}] \
   [--n-clusters N] \
+  [--auto-clusters] \
+  [--cluster-method METHOD] \
   [--use-llm]
 ```
 
 **Options:**
 - `--database-id`: Notion database ID (required)
+- `--auto-clusters`: Automatically optimize cluster count
+- `--cluster-method`: Algorithm choice (see `process` command)
 - Other options same as `process`
 
 ### test
@@ -278,11 +291,52 @@ All become one merged message.
 
 ### Clustering
 
-K-means clustering groups similar messages into categories. Number of clusters can be adjusted:
+K-means clustering groups similar messages into categories. 
+
+**Option 1: Automatic Optimization (Recommended)**
+
+kakao2notion automatically finds the optimal number of clusters:
+
+```bash
+kakao2notion process input.json --auto-clusters
+```
+
+This uses **Silhouette Score** by default, which measures both:
+- **Cohesion**: How close messages are within a cluster
+- **Separation**: How far apart clusters are from each other
+
+**Option 2: Choose Algorithm**
+
+```bash
+# Best overall performance
+kakao2notion process input.json --auto-clusters --cluster-method silhouette
+
+# Alternative methods:
+kakao2notion process input.json --auto-clusters --cluster-method davies_bouldin
+kakao2notion process input.json --auto-clusters --cluster-method calinski
+kakao2notion process input.json --auto-clusters --cluster-method elbow
+
+# Ensemble voting (consensus of all methods)
+kakao2notion process input.json --auto-clusters --cluster-method ensemble
+```
+
+**Option 3: Manual Specification**
 
 ```bash
 kakao2notion process input.json --n-clusters 10
 ```
+
+**How It Works**
+
+When `--auto-clusters` is used:
+1. Tests different cluster counts (2 to sqrt(n_messages))
+2. Evaluates each using the selected method
+3. Selects the count with best score
+4. Reports silhouette score (0-1):
+   - > 0.7: Excellent clustering
+   - > 0.5: Good clustering
+   - > 0.25: Fair clustering
+   - < 0.25: Poor clustering
 
 ### LLM Category Naming
 

@@ -34,16 +34,22 @@ kakao2notion configure
 ## 4. Process & Upload (1 minute)
 
 ```bash
-# Option A: Process only (preview results)
+# Option A: Auto-optimize (RECOMMENDED)
+kakao2notion process chat_export.json \
+  --auto-clusters \
+  --use-llm \
+  --output results.json
+
+# Option B: Manual clusters
 kakao2notion process chat_export.json \
   --n-clusters 5 \
   --use-llm \
   --output results.json
 
-# Option B: Direct upload to Notion
+# Option C: Direct upload with auto-optimization
 kakao2notion upload chat_export.json \
   --database-id YOUR_DATABASE_ID \
-  --n-clusters 5 \
+  --auto-clusters \
   --use-llm
 ```
 
@@ -51,10 +57,27 @@ That's it! Your KakaoTalk messages are now organized in Notion.
 
 ## Tips
 
-- **First time?** Use `--n-clusters 3` or `--n-clusters 5` first to see how it works
+- **Optimal clustering?** Use `--auto-clusters` (automatically finds best cluster count)
+  ```bash
+  kakao2notion process chat.json --auto-clusters
+  ```
+  
+- **Different optimization methods?** Try ensemble voting
+  ```bash
+  kakao2notion process chat.json --auto-clusters --cluster-method ensemble
+  ```
+
 - **No LLM?** Remove `--use-llm` to use simple keyword extraction
-- **Many messages?** Increase `--n-clusters` (8-10 for 1000+ messages)
+
+- **Want specific clusters?** Use `--n-clusters N` to override auto-optimization
+  ```bash
+  kakao2notion process chat.json --n-clusters 10
+  ```
+
 - **Preview before upload?** Use `process` command first with `--output`
+  ```bash
+  kakao2notion process chat.json --auto-clusters --output results.json
+  ```
 
 ## Example Output
 
