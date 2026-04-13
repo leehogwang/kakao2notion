@@ -16,32 +16,72 @@ Convert KakaoTalk messages into organized Notion pages using intelligent cluster
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.10+ (for pip/git install)
+- Or: Just download kakao2notion.exe (no Python needed!)
 - Notion API token
-- (Optional) Codex CLI installed and authenticated, or Claude API key
+- (Optional) Codex CLI or Claude API key
 
-### Via pip
+### Option 1: Standalone Executable (Windows) - Easiest!
+
+Download `kakao2notion.exe` from [Releases](https://github.com/leehogwang/kakao2notion/releases)
+
+```bash
+# Just run it - no Python installation needed!
+kakao2notion.exe
+```
+
+Or double-click the .exe file in File Explorer.
+
+### Option 2: Via pip
 
 ```bash
 pip install kakao2notion
+kakao2notion
 ```
 
-### Via git
+### Option 3: Via git
 
 ```bash
 git clone https://github.com/leehogwang/kakao2notion.git
 cd kakao2notion
 pip install -e .
+kakao2notion
+```
+
+### Option 4: Build Your Own Executable
+
+Create a Windows .exe from source:
+
+```bash
+# Clone the repo
+git clone https://github.com/leehogwang/kakao2notion.git
+cd kakao2notion
+
+# Install build dependencies
+pip install -r requirements-build.txt
+
+# Build executable
+python build_exe.py
+
+# Result: kakao2notion.exe in dist/ folder
 ```
 
 ## Quick Start
 
-### Interactive Mode (Recommended)
+### Windows Users: Download EXE (Easiest!)
 
-**Easiest way - just run:**
+1. Download `kakao2notion.exe` from [Releases](https://github.com/leehogwang/kakao2notion/releases)
+2. Double-click to run (or use terminal: `kakao2notion.exe`)
+3. No Python installation needed!
+
+### All Users: Interactive Mode
+
+**Simple - just run:**
 
 ```bash
 kakao2notion
+# or
+kakao2notion.exe
 ```
 
 This launches an interactive menu where you can:

@@ -1,0 +1,5 @@
+# Dependencies for building executable
+-r requirements.txt
+
+# Build tools
+pyinstaller>=6.0.0

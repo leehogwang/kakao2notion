@@ -73,3 +73,10 @@ config.json
 # Test data
 test_data/
 test_output/
+
+# PyInstaller build
+build/
+dist/
+*.exe
+*.spec
+*.manifest
