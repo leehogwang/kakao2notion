@@ -17,12 +17,6 @@ pip install -e .
 
 1. Go to https://www.notion.so/my-integrations
 2. Create new integration → copy token
-3. Configure kakao2notion:
-```bash
-kakao2notion configure
-# Paste your Notion API token
-# Choose LLM provider (codex or claude)
-```
 
 ## 3. Export KakaoTalk
 
@@ -31,26 +25,35 @@ kakao2notion configure
 3. Export as JSON or text
 4. Save to `chat_export.json`
 
-## 4. Process & Upload (1 minute)
+## 4. Run kakao2notion (1 minute)
 
 ```bash
-# Option A: Auto-optimize (RECOMMENDED)
-kakao2notion process chat_export.json \
-  --auto-clusters \
-  --use-llm \
-  --output results.json
+# Just run this - interactive menu appears!
+kakao2notion
+```
 
-# Option B: Manual clusters
-kakao2notion process chat_export.json \
-  --n-clusters 5 \
-  --use-llm \
-  --output results.json
+Menu-driven interface guides you through:
+- ✅ Configuration (API key, LLM provider)
+- ✅ File selection and format detection
+- ✅ Clustering settings (auto-optimize or manual)
+- ✅ LLM options
+- ✅ Preview before execution
 
-# Option C: Direct upload with auto-optimization
-kakao2notion upload chat_export.json \
-  --database-id YOUR_DATABASE_ID \
+## Alternative: Traditional CLI (if you prefer)
+
+```bash
+# Configure once
+kakao2notion configure
+
+# Process with auto-optimization
+kakao2notion process chat_export.json \
   --auto-clusters \
   --use-llm
+
+# Upload to Notion
+kakao2notion upload chat_export.json \
+  --database-id YOUR_DATABASE_ID \
+  --auto-clusters
 ```
 
 That's it! Your KakaoTalk messages are now organized in Notion.

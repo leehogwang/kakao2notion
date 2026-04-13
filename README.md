@@ -36,56 +36,81 @@ pip install -e .
 
 ## Quick Start
 
-### 1. Configure
+### Interactive Mode (Recommended)
+
+**Easiest way - just run:**
 
 ```bash
-kakao2notion configure
+kakao2notion
 ```
 
-This prompts for:
-- Notion API token (get from https://www.notion.so/my-integrations)
-- LLM provider (codex or claude)
+This launches an interactive menu where you can:
+1. Select operation (process/upload/configure)
+2. Choose input file
+3. Set clustering options with explanations
+4. Preview settings before executing
+5. Run the operation
 
-Configuration is saved to `~/.kakao2notion/config.json`
+**Example interaction:**
+```
+kakao2notion
 
-### 2. Process Messages
+🎯 kakao2notion
+   KakaoTalk → Notion Converter
+
+Choose option
+1. 📊 Process messages (preview only)
+2. 📤 Upload to Notion
+3. ⚙️  Configure (API key, LLM)
+4. 🧪 Test connection
+5. ❌ Exit
+
+> 1
+
+📁 Enter path to KakaoTalk export file: chat_export.json
+
+File format detection:
+> auto
+
+🤖 Automatically find optimal clusters? [Y/n]: y
+
+Optimization methods:
+1. Silhouette Score (default, recommended)
+2. Davies-Bouldin Index
+3. Calinski-Harabasz
+4. Elbow Method
+5. Ensemble Voting (all methods)
+
+> 1
+
+Settings Summary:
+Input File          chat_export.json
+Format              auto
+Auto Clusters       ✓ Yes
+Cluster Method      silhouette
+Use LLM             ✓ Yes
+
+✅ Proceed with these settings? [Y/n]: y
+```
+
+### Traditional CLI Mode (Advanced)
+
+Still works as before if you prefer command-line:
 
 ```bash
+# Configure once
+kakao2notion configure
+
+# Process messages
 kakao2notion process input.json \
-  --n-clusters 5 \
+  --auto-clusters \
   --use-llm \
   --output results.json
-```
 
-This:
-- Parses KakaoTalk messages
-- Merges similar messages
-- Clusters into categories
-- Generates category names using LLM
-- Saves results to JSON
-
-### 3. Upload to Notion
-
-```bash
+# Upload to Notion
 kakao2notion upload input.json \
   --database-id YOUR_DATABASE_ID \
-  --n-clusters 5 \
-  --use-llm
-```
-
-Creates a hierarchical structure:
-```
-Your Notion Database
-├── 서버 (Server)
-│   ├── 라이트백 설정법
-│   ├── NSM 마이그레이션
-│   └── ...
-├── 실습실 (Lab)
-│   ├── 프로그램 설치
-│   └── ...
-└── 연구 (Research)
-    ├── 논문 읽을거
-    └── ...
+  --auto-clusters
 ```
 
 ## Commands
