@@ -36,8 +36,6 @@ def build_exe():
         "--onefile",  # Single executable file
         "--windowed",  # Hide console window (remove for CLI)
         "--name", "kakao2notion",
-        "--icon", "kakao2notion.ico" if Path("kakao2notion.ico").exists() else None,
-        "--add-data", "kakao2notion:kakao2notion",
         "--hidden-import=sklearn",
         "--hidden-import=sklearn.cluster",
         "--hidden-import=sklearn.metrics",
@@ -48,11 +46,13 @@ def build_exe():
         "--hidden-import=prompt_toolkit",
         "--collect-all=rich",
         "--collect-all=prompt_toolkit",
-        str(script_dir / "kakao2notion" / "__main__.py"),
+        str(script_dir / "__main__.py"),
     ]
 
-    # Remove None values
-    cmd = [c for c in cmd if c is not None]
+    # Add icon if it exists
+    if Path("kakao2notion.ico").exists():
+        cmd.insert(6, "kakao2notion.ico")
+        cmd.insert(6, "--icon")
 
     print(f"📦 Running: {' '.join(cmd)}\n")
 
