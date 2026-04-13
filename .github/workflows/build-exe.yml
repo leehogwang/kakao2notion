@@ -9,8 +9,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - uses: actions/checkout@v4
@@ -19,23 +17,37 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Check disk space
+      - name: Create clean virtual environment
         run: |
-          Get-Volume
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
-          echo "Dependencies installed successfully"
+          python -m venv venv
+          venv\Scripts\pip install --upgrade pip setuptools wheel
+          venv\Scripts\pip install -r requirements.txt pyinstaller
 
       - name: Build executable
         run: |
-          python build_exe.py
-          if (-not (Test-Path "dist/kakao2notion.exe")) {
-            echo "Build failed - exe not found"
+          venv\Scripts\pyinstaller --onefile `
+            --name kakao2notion `
+            --hidden-import=sklearn `
+            --hidden-import=sklearn.cluster `
+            --hidden-import=sklearn.metrics `
+            --hidden-import=sklearn.feature_extraction `
+            --hidden-import=notion_client `
+            --hidden-import=rich `
+            --hidden-import=click `
+            --hidden-import=prompt_toolkit `
+            --collect-all=rich `
+            --collect-all=prompt_toolkit `
+            __main__.py
+
+      - name: Check build result
+        run: |
+          if (Test-Path "dist\kakao2notion.exe") {
+            Write-Host "✅ Build successful!"
+            Get-Item "dist\kakao2notion.exe" | Format-List Name, Length
+          } else {
+            Write-Host "❌ Build failed - exe not found"
             exit 1
           }
 
